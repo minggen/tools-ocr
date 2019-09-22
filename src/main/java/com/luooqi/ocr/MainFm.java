@@ -28,6 +28,10 @@ import javafx.stage.Stage;
 import org.jnativehook.GlobalScreen;
 
 import javax.imageio.ImageIO;
+import java.awt.*;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.StringSelection;
+import java.awt.datatransfer.Transferable;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -120,7 +124,7 @@ public class MainFm extends Application {
         GlobalScreen.unregisterNativeHook();
     }
 
-    private void clearText(){
+    private void clearText() {
         textArea.setText("");
     }
 
@@ -134,12 +138,12 @@ public class MainFm extends Application {
                 + Clipboard.getSystemClipboard().getString());
     }
 
-    private void copyText(){
+    private void copyText() {
         String text = textArea.getSelectedText();
-        if (StrUtil.isBlank(text)){
+        if (StrUtil.isBlank(text)) {
             text = textArea.getText();
         }
-        if (StrUtil.isBlank(text)){
+        if (StrUtil.isBlank(text)) {
             return;
         }
         Map<DataFormat, Object> data = new HashMap<>();
@@ -176,14 +180,39 @@ public class MainFm extends Application {
         runLater(screenCapture::cancelSnap);
     }
 
-    public static void doOcr(BufferedImage image){
-        processController.setX(CaptureInfo.ScreenMinX + (CaptureInfo.ScreenWidth - 300)/2 );
+    public static void doOcr(BufferedImage image) {
+        processController.setX(CaptureInfo.ScreenMinX + (CaptureInfo.ScreenWidth - 300) / 2);
         processController.setY(250);
         processController.show();
-        Thread ocrThread = new Thread(()->{
+        Thread ocrThread = new Thread(() -> {
             byte[] bytes = CommUtils.imageToBytes(image);
             String text = OcrUtils.ocrImg(bytes);
-            Platform.runLater(()-> {
+            //todo
+            System.out.println(text);
+            System.out.println("---->clip");
+            Map<DataFormat, Object> data = new HashMap<>();
+            data.put(DataFormat.PLAIN_TEXT, text);
+//            Clipboard.getSystemClipboard().setContent(data);
+
+            java.awt.datatransfer.Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+            Transferable trandata = new StringSelection(text);
+            clipboard.setContents(trandata, null);
+
+            Transferable clipTf = clipboard.getContents(null);
+            if (clipTf != null) {
+                // 检查内容是否是文本类型
+                if (clipTf.isDataFlavorSupported(DataFlavor.stringFlavor)) {
+                    try {
+                        String ret = (String) clipTf
+                                .getTransferData(DataFlavor.stringFlavor);
+                        System.out.println("剪贴板内容" + ret);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+
+            Platform.runLater(() -> {
                 processController.close();
                 textArea.setText(text);
                 restore(true);
@@ -201,24 +230,22 @@ public class MainFm extends Application {
         stage.setY(stageInfo.getY());
         stage.setWidth(stageInfo.getWidth());
         stage.setHeight(stageInfo.getHeight());
-        if (focus){
+        if (focus) {
             stage.show();
             stage.requestFocus();
-        }
-        else{
+        } else {
             stage.close();
         }
     }
 
-    private static void initKeyHook(){
+    private static void initKeyHook() {
         try {
             Logger logger = Logger.getLogger(GlobalScreen.class.getPackage().getName());
             logger.setLevel(Level.WARNING);
             logger.setUseParentHandlers(false);
             GlobalScreen.registerNativeHook();
             GlobalScreen.addNativeKeyListener(new GlobalKeyListener());
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             ex.printStackTrace();
         }
     }
